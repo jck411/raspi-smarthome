@@ -42,10 +42,10 @@ else
     echo "uv is already installed"
 fi
 
-# Install Python dependencies using uv
+# Install dependencies using uv sync
 echo ""
-echo "Installing Python dependencies with uv..."
-uv pip install --system -r requirements.txt
+echo "Syncing dependencies with uv..."
+uv sync
 
 # Test audio device
 echo ""

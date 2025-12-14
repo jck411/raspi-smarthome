@@ -68,6 +68,7 @@ class AudioAgent:
         # Streaming state
         self.is_streaming = False
         self.stream_sequence = 0
+        self.last_wake_event = datetime.min
         
         # Register WebSocket event handlers
         self.ws_client.on_state_change = self.handle_state_change
@@ -153,6 +154,12 @@ class AudioAgent:
         Args:
             confidence: Detection confidence score
         """
+        # Cooldown check to prevent spamming from single utterance
+        if (datetime.now() - self.last_wake_event).total_seconds() < 1.0:
+            return
+
+        self.last_wake_event = datetime.now()
+
         if self.state == AgentState.IDLE:
             # Normal wake word from idle state
             logger.info(f"Wake word detected from IDLE (confidence: {confidence:.3f})")

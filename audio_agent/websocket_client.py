@@ -36,6 +36,7 @@ class WebSocketClient:
         self.on_interrupt_tts: Optional[Callable[[], None]] = None
         self.on_tts_audio: Optional[Callable[[bytes, str], None]] = None
         self.on_session_reset: Optional[Callable[[], None]] = None
+        self.on_transcript: Optional[Callable[[str, bool], None]] = None
 
     async def connect(self) -> None:
         """Establish WebSocket connection to backend."""
@@ -173,6 +174,12 @@ class WebSocketClient:
             elif event_type == "session_reset":
                 if self.on_session_reset:
                     self.on_session_reset()
+
+            elif event_type == "transcript":
+                text = payload.get("text")
+                is_final = payload.get("is_final", False)
+                if self.on_transcript and text:
+                    self.on_transcript(text, is_final)
 
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON received: {e}")

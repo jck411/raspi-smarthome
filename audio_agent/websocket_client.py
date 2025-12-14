@@ -92,14 +92,14 @@ class WebSocketClient:
     async def send_wake_word_detected(self, confidence: float) -> None:
         """Send wake word detection event."""
         await self.send_event("wakeword_detected", {
-            "confidence": confidence,
+            "confidence": float(confidence),  # Convert numpy float32 to Python float
             "timestamp": self._get_timestamp()
         })
 
     async def send_wake_word_barge_in(self, confidence: float) -> None:
         """Send wake word barge-in event (during speaking)."""
         await self.send_event("wakeword_barge_in", {
-            "confidence": confidence,
+            "confidence": float(confidence),  # Convert numpy float32 to Python float
             "timestamp": self._get_timestamp()
         })
 

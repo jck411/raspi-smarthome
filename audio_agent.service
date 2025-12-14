@@ -1,0 +1,21 @@
+[Unit]
+Description=Smart Home Audio Agent
+After=network.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jck411
+WorkingDirectory=/home/jck411/.gemini/antigravity/scratch/raspi-smarthome
+ExecStart=/usr/bin/python3 -m audio_agent.main
+Restart=always
+RestartSec=3
+Environment="PYTHONUNBUFFERED=1"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audio_agent
+
+[Install]
+WantedBy=multi-user.target

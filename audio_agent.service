@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=jck411
-WorkingDirectory=/home/jck411/.gemini/antigravity/scratch/raspi-smarthome
-ExecStart=/usr/bin/python3 -m audio_agent.main
+WorkingDirectory=/home/jck411/raspi-smarthome
+ExecStart=/home/jck411/.cargo/bin/uv run python -m audio_agent.main
 Restart=always
 RestartSec=3
 Environment="PYTHONUNBUFFERED=1"

@@ -26,8 +26,20 @@ class WakeWordDetector:
         """Load the wake word model."""
         try:
             logger.info(f"Loading wake word model: {self.model_name}")
-            # openwakeword will auto-download models if not found
-            self.model = WakeWordModel(wakeword_models=[self.model_name])
+            
+            # Check if it's a path to a local file
+            import os
+            local_path = os.path.join(os.getcwd(), "models", self.model_name)
+            logger.info(f"Checking for model at: {local_path}")
+            
+            if os.path.exists(local_path):
+                logger.info(f"Found local model file: {local_path}")
+                self.model = WakeWordModel(wakeword_models=[local_path])
+            else:
+                logger.info(f"Local model not found, trying built-in models")
+                # openwakeword will auto-download models if not found
+                self.model = WakeWordModel(wakeword_models=[self.model_name])
+            
             logger.info(f"Wake word model loaded successfully with threshold {self.threshold}")
         except Exception as e:
             logger.error(f"Failed to load wake word model: {e}")

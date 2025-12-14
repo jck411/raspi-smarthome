@@ -18,7 +18,30 @@ Smart home voice assistant audio agent for Raspberry Pi 5 with always-on wake wo
 - Python 3.11+
 - Debian 12 (bookworm) or compatible
 
-## Quick Start
+## Quick Launch (Kiosk + Wake Word)
+
+If you've already completed setup, launch everything with one command:
+
+```bash
+# SSH into your Pi, then:
+cd ~/raspi-smarthome
+./launch.sh
+```
+
+This starts:
+- ✅ **Browser in kiosk mode** (fullscreen, touch-optimized, cursor hidden)
+- ✅ **Wake word listener** (always-on "hey Jarvis")
+
+> **Note:** The Pi must have a desktop session running. Works from SSH - uses `DISPLAY=:0` automatically.
+
+To hide the cursor, install `unclutter`:
+```bash
+sudo apt install unclutter
+```
+
+---
+
+## Quick Start (First-Time Setup)
 
 ### 1. Configure Environment
 
@@ -233,6 +256,7 @@ raspi-smarthome/
 ├── .env                    # Your configuration (gitignored)
 ├── audio_agent.service     # Systemd service definition
 ├── install.sh              # Installation script
+├── launch.sh               # All-in-one launcher (kiosk + wake word)
 └── README.md               # This file
 ```
 

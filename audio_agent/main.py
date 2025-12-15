@@ -7,6 +7,8 @@ from enum import Enum
 from datetime import datetime
 from typing import Optional
 
+import numpy as np
+
 from .config import Config
 from .audio_capture import AudioCapture
 from .wake_word import WakeWordDetector
@@ -95,6 +97,12 @@ class AudioAgent:
         # Connect to backend
         await self.ws_client.connect()
         
+        # AUTO-START LISTENING FOR TESTING (bypass wake word)
+        self.state = AgentState.LISTENING
+        self.start_streaming()
+        logger.info("🎙️  AUTO-STARTED LISTENING MODE FOR TESTING")
+        logger.info("🔴 WAKE WORD DISABLED - STREAMING AUDIO IMMEDIATELY")
+        
         # Start tasks
         tasks = [
             asyncio.create_task(self.audio_processing_loop()),
@@ -127,16 +135,18 @@ class AudioAgent:
                 # Read audio chunk
                 audio_chunk = self.audio.read_chunk()
                 
+                # WAKE WORD DETECTION DISABLED FOR TESTING
                 # Always run wake word detection (even during streaming/speaking)
-                detected, confidence = self.wake_word.detect(audio_chunk)
-                
-                if detected:
-                    await self.handle_wake_word(confidence)
+                # detected, confidence = self.wake_word.detect(audio_chunk)
+                # 
+                # if detected:
+                #     await self.handle_wake_word(confidence)
                 
                 # Stream audio to backend if in LISTENING state
                 if self.is_streaming:
-                    # Convert numpy array to bytes
-                    audio_bytes = audio_chunk.tobytes()
+                    # Get raw bytes directly from audio chunk
+                    # audio_chunk is numpy array - convert to bytes properly for Deepgram
+                    audio_bytes = audio_chunk.astype(np.int16).tobytes()
                     await self.ws_client.send_audio_chunk(audio_bytes, self.stream_sequence)
                     self.stream_sequence += 1
                 

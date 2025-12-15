@@ -97,11 +97,8 @@ class AudioAgent:
         # Connect to backend
         await self.ws_client.connect()
         
-        # AUTO-START LISTENING FOR TESTING (bypass wake word)
-        self.state = AgentState.LISTENING
-        self.start_streaming()
-        logger.info("🎙️  AUTO-STARTED LISTENING MODE FOR TESTING")
-        logger.info("🔴 WAKE WORD DISABLED - STREAMING AUDIO IMMEDIATELY")
+        # Start in IDLE, waiting for wake word
+        logger.info("🎤 Listening for wake word...")
         
         # Start tasks
         tasks = [
@@ -135,12 +132,11 @@ class AudioAgent:
                 # Read audio chunk
                 audio_chunk = self.audio.read_chunk()
                 
-                # WAKE WORD DETECTION DISABLED FOR TESTING
                 # Always run wake word detection (even during streaming/speaking)
-                # detected, confidence = self.wake_word.detect(audio_chunk)
-                # 
-                # if detected:
-                #     await self.handle_wake_word(confidence)
+                detected, confidence = self.wake_word.detect(audio_chunk)
+                
+                if detected:
+                    await self.handle_wake_word(confidence)
                 
                 # Stream audio to backend if in LISTENING state
                 if self.is_streaming:
@@ -171,16 +167,26 @@ class AudioAgent:
         self.last_wake_event = datetime.now()
 
         if self.state == AgentState.IDLE:
-            # Normal wake word from idle state
-            logger.info(f"Wake word detected from IDLE (confidence: {confidence:.3f})")
+            # Wake word detected - immediately start listening (don't wait for backend)
+            logger.info(f"🎙️ Wake word detected! (confidence: {confidence:.3f})")
+            
+            # Start listening immediately (Pi controls its own state)
+            self.state = AgentState.LISTENING
+            self.start_streaming()
+            
+            # Notify backend (for transcript processing)
             await self.ws_client.send_wake_word_detected(confidence)
-            # Backend will send state change to LISTENING
             
         elif self.state == AgentState.SPEAKING:
             # Barge-in: wake word during TTS playback
-            logger.info(f"Wake word BARGE-IN detected during SPEAKING (confidence: {confidence:.3f})")
+            logger.info(f"🛑 Wake word BARGE-IN detected during SPEAKING (confidence: {confidence:.3f})")
+            
+            # Start listening immediately
+            self.state = AgentState.LISTENING
+            self.start_streaming()
+            
+            # Notify backend
             await self.ws_client.send_wake_word_barge_in(confidence)
-            # Backend will interrupt TTS and change to LISTENING
 
     def handle_state_change(self, new_state: str) -> None:
         """
@@ -222,14 +228,14 @@ class AudioAgent:
     def start_streaming(self) -> None:
         """Start streaming audio to backend."""
         if not self.is_streaming:
-            logger.info("Starting audio streaming to backend")
+            logger.info("🔴 Starting audio streaming to backend")
             self.is_streaming = True
             self.stream_sequence = 0
 
     def stop_streaming(self) -> None:
         """Stop streaming audio to backend."""
         if self.is_streaming:
-            logger.info("Stopping audio streaming")
+            logger.info("⏹️ Stopping audio streaming")
             self.is_streaming = False
             self.stream_sequence = 0
 

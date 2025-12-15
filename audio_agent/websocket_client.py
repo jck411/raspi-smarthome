@@ -160,6 +160,12 @@ class WebSocketClient:
                 if self.on_state_change and state:
                     self.on_state_change(state)
 
+            elif event_type == "state":
+                # Handle state message format: {type: 'state', state: 'LISTENING'}
+                state = data.get("state")
+                if self.on_state_change and state:
+                    self.on_state_change(state.lower())
+
             elif event_type == "interrupt_tts":
                 if self.on_interrupt_tts:
                     self.on_interrupt_tts()

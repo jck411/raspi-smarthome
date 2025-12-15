@@ -23,6 +23,16 @@ BACKEND_HOST="${BACKEND_HOST#wss://}"
 BACKEND_HOST="${BACKEND_HOST%%/*}"
 FRONTEND_URL="http://${BACKEND_HOST}"
 
+# Cleanup any stale audio agent processes from previous runs
+echo "Checking for stale audio agent processes..."
+if pgrep -f "audio_agent.main" > /dev/null; then
+    echo "  Found stale audio agent processes. Cleaning up..."
+    pkill -f "audio_agent.main" || true
+    sleep 1
+    # Force kill if still running
+    pkill -9 -f "audio_agent.main" 2>/dev/null || true
+fi
+
 echo "============================================"
 echo "   Smart Home Launcher"
 echo "============================================"

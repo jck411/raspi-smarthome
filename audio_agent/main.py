@@ -76,6 +76,7 @@ class AudioAgent:
         self.ws_client.on_state_change = self.handle_state_change
         self.ws_client.on_interrupt_tts = self.handle_interrupt_tts
         self.ws_client.on_session_reset = self.handle_session_reset
+        self.ws_client.on_tool_status = self.handle_tool_status
 
     async def start(self) -> None:
         """Start the audio agent."""
@@ -224,6 +225,15 @@ class AudioAgent:
         self.stop_streaming()
         self.wake_word.reset()
         self.state = AgentState.IDLE
+
+    def handle_tool_status(self, status: str, name: str) -> None:
+        """Handle tool status updates from backend."""
+        if status == "started":
+            logger.info(f"🔧 Tool starting: {name}")
+        elif status == "finished":
+            logger.info(f"✅ Tool finished: {name}")
+        elif status == "error":
+            logger.warning(f"❌ Tool error: {name}")
 
     def start_streaming(self) -> None:
         """Start streaming audio to backend."""

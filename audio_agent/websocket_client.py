@@ -37,6 +37,7 @@ class WebSocketClient:
         self.on_tts_audio: Optional[Callable[[bytes, str], None]] = None
         self.on_session_reset: Optional[Callable[[], None]] = None
         self.on_transcript: Optional[Callable[[str, bool], None]] = None
+        self.on_tool_status: Optional[Callable[[str, str], None]] = None  # (status, name)
 
     async def connect(self) -> None:
         """Establish WebSocket connection to backend."""
@@ -198,6 +199,13 @@ class WebSocketClient:
                 text = data.get("text")
                 logger.info(f"Assistant says: {text}")
                 # Could add an on_assistant_response handler here if needed
+
+            elif event_type == "tool_status":
+                # Tool status message: {type: 'tool_status', status: '...', name: '...'}
+                status = data.get("status")
+                name = data.get("name")
+                if self.on_tool_status and status and name:
+                    self.on_tool_status(status, name)
 
             else:
                 logger.debug(f"Ignoring unhandled event type: {event_type}")

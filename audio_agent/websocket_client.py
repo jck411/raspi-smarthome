@@ -26,11 +26,11 @@ class WebSocketClient:
         self.url = url
         self.client_id = client_id
         self.heartbeat_interval = heartbeat_interval
-        
+
         self.websocket: Optional[WebSocketClientProtocol] = None
         self.connected = False
         self.reconnect_delay = 3
-        
+
         # Event handlers
         self.on_state_change: Optional[Callable[[str], None]] = None
         self.on_interrupt_tts: Optional[Callable[[], None]] = None
@@ -45,13 +45,13 @@ class WebSocketClient:
             self.websocket = await websockets.connect(self.url)
             self.connected = True
             logger.info("WebSocket connected successfully")
-            
+
             # Send connection ready message
             await self.send_event("connection_ready", {
                 "client_id": self.client_id,
                 "timestamp": self._get_timestamp()
             })
-            
+
         except Exception as e:
             logger.error(f"Failed to connect to backend: {e}")
             self.connected = False
@@ -113,7 +113,7 @@ class WebSocketClient:
         """
         # Convert audio to base64 for JSON transmission
         audio_b64 = base64.b64encode(audio_data).decode('utf-8')
-        
+
         await self.send_event("audio_chunk", {
             "audio": audio_b64,
             "seq": sequence
@@ -151,12 +151,16 @@ class WebSocketClient:
         try:
             data = json.loads(message)
             event_type = data.get("type")
+            # Some messages have payload in 'data', others have it at root level
             payload = data.get("data", {})
+            # Handle case where payload itself is a string (not a dict)
+            if isinstance(payload, str):
+                payload = {}
 
             logger.debug(f"Received event: {event_type}")
 
             if event_type == "set_state":
-                state = payload.get("state")
+                state = payload.get("state") if isinstance(payload, dict) else None
                 if self.on_state_change and state:
                     self.on_state_change(state)
 
@@ -171,8 +175,9 @@ class WebSocketClient:
                     self.on_interrupt_tts()
 
             elif event_type == "tts_audio":
-                audio_b64 = payload.get("audio")
-                audio_format = payload.get("format", "pcm")
+                # Audio is in 'data' key at root level, base64 encoded
+                audio_b64 = data.get("data")
+                audio_format = payload.get("format", "pcm") if isinstance(payload, dict) else "pcm"
                 if self.on_tts_audio and audio_b64:
                     audio_bytes = base64.b64decode(audio_b64)
                     self.on_tts_audio(audio_bytes, audio_format)
@@ -182,10 +187,20 @@ class WebSocketClient:
                     self.on_session_reset()
 
             elif event_type == "transcript":
-                text = payload.get("text")
-                is_final = payload.get("is_final", False)
+                # Transcript message: {type: 'transcript', text: '...', is_final: bool}
+                text = data.get("text") or (payload.get("text") if isinstance(payload, dict) else None)
+                is_final = data.get("is_final", False) or (payload.get("is_final", False) if isinstance(payload, dict) else False)
                 if self.on_transcript and text:
                     self.on_transcript(text, is_final)
+
+            elif event_type == "assistant_response":
+                # Assistant response message: {type: 'assistant_response', text: '...'}
+                text = data.get("text")
+                logger.info(f"Assistant says: {text}")
+                # Could add an on_assistant_response handler here if needed
+
+            else:
+                logger.debug(f"Ignoring unhandled event type: {event_type}")
 
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON received: {e}")
@@ -205,7 +220,7 @@ class WebSocketClient:
                 await receive_handler()
             except Exception as e:
                 logger.error(f"WebSocket error: {e}")
-                
+
             self.connected = False
             logger.info(f"Reconnecting in {self.reconnect_delay} seconds...")
             await asyncio.sleep(self.reconnect_delay)

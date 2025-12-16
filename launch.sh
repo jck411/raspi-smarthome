@@ -87,6 +87,7 @@ if command -v chromium-browser &> /dev/null; then
     chromium-browser \
         --kiosk \
         --noerrdialogs \
+        --autoplay-policy=no-user-gesture-required \
         --disable-infobars \
         --disable-session-crashed-bubble \
         --disable-restore-session-state \
@@ -105,6 +106,7 @@ elif command -v chromium &> /dev/null; then
         --kiosk \
         --noerrdialogs \
         --disable-infobars \
+        --autoplay-policy=no-user-gesture-required \
         --disable-session-crashed-bubble \
         --disable-restore-session-state \
         --no-first-run \

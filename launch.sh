@@ -16,12 +16,14 @@ if [ -f .env ]; then
     source <(grep -E '^[A-Z_]+=.*' .env | sed 's/\r$//')
 fi
 
-# Default backend URL (http, derived from ws url or fallback)
 BACKEND_HOST="${BACKEND_WS_URL:-ws://localhost:8000}"
 BACKEND_HOST="${BACKEND_HOST#ws://}"
 BACKEND_HOST="${BACKEND_HOST#wss://}"
 BACKEND_HOST="${BACKEND_HOST%%/*}"
-FRONTEND_URL="http://${BACKEND_HOST}"
+
+# Extract hostname without port for Frontend URL
+BACKEND_IP="${BACKEND_HOST%%:*}"
+FRONTEND_URL="http://${BACKEND_IP}:5174"
 
 # Cleanup any stale audio agent processes from previous runs
 echo "Checking for stale audio agent processes..."

@@ -79,6 +79,17 @@ else
     echo "    Install with: sudo apt install unclutter"
 fi
 
+# Disable screen blanking and power management
+if command -v xset &> /dev/null; then
+    echo "Disabling screen sleep/blanking..."
+    xset s noblank
+    xset s off
+    xset -dpms
+else
+    echo "  ⚠ xset not found - screen may sleep"
+    echo "    Install with: sudo apt install x11-xserver-utils"
+fi
+
 # Detect and start browser in kiosk mode (background)
 echo "Detecting browser..."
 if command -v chromium-browser &> /dev/null; then

@@ -41,6 +41,15 @@ class WebSocketClient:
 
     async def connect(self) -> None:
         """Establish WebSocket connection to backend."""
+        # Clean up any existing connection first
+        if self.websocket:
+            try:
+                await self.websocket.close()
+            except Exception:
+                pass
+            self.websocket = None
+            self.connected = False
+        
         try:
             logger.info(f"Connecting to backend: {self.url}")
             self.websocket = await websockets.connect(self.url)
@@ -56,15 +65,20 @@ class WebSocketClient:
         except Exception as e:
             logger.error(f"Failed to connect to backend: {e}")
             self.connected = False
+            self.websocket = None
             raise
 
     async def disconnect(self) -> None:
         """Close WebSocket connection."""
+        self.connected = False
         if self.websocket:
             logger.info("Disconnecting from backend")
-            await self.websocket.close()
-            self.websocket = None
-            self.connected = False
+            try:
+                await self.websocket.close()
+            except Exception as e:
+                logger.warning(f"Error closing websocket: {e}")
+            finally:
+                self.websocket = None
 
     async def send_event(self, event_type: str, data: dict) -> None:
         """
@@ -140,11 +154,11 @@ class WebSocketClient:
         try:
             async for message in self.websocket:
                 await self._handle_message(message)
-        except websockets.exceptions.ConnectionClosed:
-            logger.warning("WebSocket connection closed")
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.warning(f"WebSocket connection closed - Code: {e.code}, Reason: '{e.reason}'")
             self.connected = False
         except Exception as e:
-            logger.error(f"Error receiving messages: {e}")
+            logger.error(f"Error receiving messages: {type(e).__name__}: {e}")
             self.connected = False
 
     async def _handle_message(self, message: str) -> None:

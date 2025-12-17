@@ -95,16 +95,19 @@ class AudioAgent:
         self.audio.start()
         logger.info("Audio capture started")
         
-        # Connect to backend
-        await self.ws_client.connect()
+        # Initial connection to backend
+        try:
+            await self.ws_client.connect()
+        except Exception as e:
+            logger.warning(f"Initial connection failed: {e}, will retry...")
         
         # Start in IDLE, waiting for wake word
         logger.info("🎤 Listening for wake word...")
         
-        # Start tasks
+        # Start tasks - the connection_manager_loop handles reconnection
         tasks = [
             asyncio.create_task(self.audio_processing_loop()),
-            asyncio.create_task(self.ws_client.receive_messages()),
+            asyncio.create_task(self.connection_manager_loop()),
             asyncio.create_task(self.heartbeat_loop()),
         ]
         
@@ -116,6 +119,37 @@ class AudioAgent:
             logger.info("Shutdown signal received")
         finally:
             await self.stop()
+
+    async def connection_manager_loop(self) -> None:
+        """Manage WebSocket connection with automatic reconnection."""
+        reconnect_delay = 3  # seconds
+        
+        while True:
+            try:
+                # Ensure we're connected
+                if not self.ws_client.connected:
+                    logger.info("WebSocket not connected, attempting to connect...")
+                    try:
+                        await self.ws_client.connect()
+                        logger.info("✅ WebSocket reconnected successfully")
+                    except Exception as e:
+                        logger.error(f"Failed to connect: {e}")
+                        await asyncio.sleep(reconnect_delay)
+                        continue
+                
+                # Run the receive loop - this will exit when connection closes
+                await self.ws_client.receive_messages()
+                
+                # If we get here, connection was closed
+                logger.warning("WebSocket connection lost, will reconnect...")
+                self.ws_client.connected = False
+                
+            except Exception as e:
+                logger.error(f"Connection manager error: {e}")
+                self.ws_client.connected = False
+            
+            # Wait before reconnecting
+            await asyncio.sleep(reconnect_delay)
 
     async def stop(self) -> None:
         """Stop the audio agent."""
@@ -182,12 +216,32 @@ class AudioAgent:
             # Barge-in: wake word during TTS playback
             logger.info(f"🛑 Wake word BARGE-IN detected during SPEAKING (confidence: {confidence:.3f})")
             
-            # Start listening immediately
+            # IMMEDIATELY mute the speaker at OS level - no network latency!
+            import subprocess
+            try:
+                subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "1"], 
+                              timeout=0.1, check=False, capture_output=True)
+                logger.info("🔇 Speaker muted locally")
+            except Exception as e:
+                logger.warning(f"Failed to mute speaker: {e}")
+            
+            # Notify backend (so it can send interrupt_tts to frontend)
+            await self.ws_client.send_wake_word_barge_in(confidence)
+            
+            # Small delay for the mute to take effect and any residual audio to clear
+            await asyncio.sleep(0.3)
+            
+            # Unmute speaker (TTS should be stopped by now)
+            try:
+                subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "0"], 
+                              timeout=0.1, check=False, capture_output=True)
+                logger.info("🔊 Speaker unmuted")
+            except Exception as e:
+                logger.warning(f"Failed to unmute speaker: {e}")
+            
+            # Now start listening
             self.state = AgentState.LISTENING
             self.start_streaming()
-            
-            # Notify backend
-            await self.ws_client.send_wake_word_barge_in(confidence)
 
     def handle_state_change(self, new_state: str) -> None:
         """
@@ -252,7 +306,15 @@ class AudioAgent:
     async def heartbeat_loop(self) -> None:
         """Send periodic heartbeat to backend."""
         while True:
-            await asyncio.sleep(self.config.session.heartbeat_interval)
+            # Send heartbeat more frequently during SPEAKING to keep connection alive
+            # (since we're not sending audio chunks during TTS)
+            if self.state == AgentState.SPEAKING:
+                interval = 2  # more frequent during TTS
+            else:
+                interval = self.config.session.heartbeat_interval
+            
+            await asyncio.sleep(interval)
+            
             if self.ws_client.connected:
                 await self.ws_client.send_heartbeat()
 
